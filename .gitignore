@@ -1,1 +1,13 @@
 .env
+# Ignore python environment
+.venv/
+__pycache__/
+
+# Ignore ALL .env files in any folder
+.env
+*.local
+**/.env.local
+
+# Ignore frontend dependencies
+**/node_modules/
+**/.next/
