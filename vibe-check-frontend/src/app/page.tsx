@@ -7,6 +7,7 @@ import {
   ControlBar, 
   useRoomContext,
   ConnectionStateToast,
+  useDataChannel, // Added this
 } from '@livekit/components-react';
 import { GeminiOrb } from '@/components/GeminiOrb';
 import { Transcript } from '@/components/Transcript';
@@ -15,11 +16,13 @@ const AudioUnlock = () => {
   const room = useRoomContext();
   const [unlocked, setUnlocked] = useState(false);
   
-  // Automatically try to enable mic when this component mounts inside the room
   useEffect(() => {
     const enableMic = async () => {
       try {
-        await room.localParticipant.setMicrophoneEnabled(true);
+        // We check if it's already enabled to prevent "toggling" off by mistake
+        if (!room.localParticipant.isMicrophoneEnabled) {
+          await room.localParticipant.setMicrophoneEnabled(true);
+        }
       } catch (e) {
         console.error("Failed to enable mic on mount:", e);
       }
@@ -35,8 +38,8 @@ const AudioUnlock = () => {
         <div className="w-24 h-[2px] bg-cyan-500 mx-auto mb-8 shadow-[0_0_20px_rgba(6,182,212,0.8)] animate-pulse" />
         <button 
           onClick={async () => {
+            // Browser security requires this user-initiated click to play audio
             await room.startAudio();
-            // Explicitly ensure mic is on when user clicks initialize
             await room.localParticipant.setMicrophoneEnabled(true);
             setUnlocked(true);
           }}
@@ -48,6 +51,18 @@ const AudioUnlock = () => {
       </div>
     </div>
   );
+};
+
+// --- OPTIONAL: Global Vibe Watcher ---
+// This ensures the whole page "knows" when a vibe shift happens
+const VibeMonitor = () => {
+  useDataChannel((message) => {
+    const data = JSON.parse(new TextDecoder().decode(message.payload));
+    if (data.type === 'VIBE_ALERT') {
+      console.log("Global System: Neural Vibe Shift Detected");
+    }
+  });
+  return null;
 };
 
 export default function Page() {
@@ -83,13 +98,13 @@ export default function Page() {
     <LiveKitRoom
       token={token}
       serverUrl={process.env.NEXT_PUBLIC_LIVEKIT_URL}
-      // Critical: Set video false, audio true, and ensure we connect with mic
       video={false}
       audio={true}
       connect={true}
       onDisconnected={() => setToken(null)}
       className="h-screen w-full bg-[#050505] text-white flex flex-col font-sans m-0 p-0 overflow-hidden"
     >
+      <VibeMonitor />
       <AudioUnlock />
       <ConnectionStateToast />
 
@@ -112,8 +127,6 @@ export default function Page() {
 
       {/* Main Layout */}
       <main className="flex-1 flex flex-col xl:flex-row p-4 md:p-6 gap-6 relative overflow-hidden w-full h-full pb-28 md:pb-6">
-        
-        {/* Left Section: Visualizer */}
         <section className="flex-[3] w-full relative border border-white/5 rounded-[1.5rem] md:rounded-[2.5rem] bg-[#080808] flex flex-col items-center justify-center overflow-hidden group min-h-0">
           <div className="absolute top-0 left-0 w-full h-[2px] bg-cyan-500/20 animate-scan z-10 pointer-events-none" />
           <div className="scale-75 md:scale-110 transition-transform duration-1000">
@@ -121,7 +134,6 @@ export default function Page() {
           </div>
         </section>
 
-        {/* Right Section: Intelligence Sidebar */}
         <aside className="flex-1 w-full xl:min-w-[420px] flex flex-col gap-6 min-h-0">
           <div className="flex-1 bg-black/40 border border-white/10 rounded-[1.5rem] md:rounded-[2.5rem] p-6 flex flex-col relative overflow-hidden min-h-0">
             <h3 className="font-mono text-[10px] text-slate-500 uppercase tracking-[0.4em] mb-4 border-b border-white/5 pb-4">Extraction_Log</h3>
@@ -141,9 +153,8 @@ export default function Page() {
         </aside>
       </main>
 
-      {/* Control Bar Dock */}
-      <div className="fixed bottom-6 right-6 z-[60] flex items-center justify-center pointer-events-none">
-        <div className="bg-black/80 backdrop-blur-2xl border border-white/10 p-2 rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.5)] pointer-events-auto">
+      <div className="fixed bottom-6 right-6 z-[60] flex items-center justify-center pointer-events-auto">
+        <div className="bg-black/80 backdrop-blur-2xl border border-white/10 p-2 rounded-2xl shadow-[0_0_30px_rgba(0,0,0,0.5)]">
           <div className="lk-control-bar-custom">
             <ControlBar 
               variation="minimal" 

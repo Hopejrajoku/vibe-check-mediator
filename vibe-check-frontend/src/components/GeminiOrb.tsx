@@ -5,13 +5,27 @@ import { BarVisualizer, useDataChannel } from '@livekit/components-react';
 export const GeminiOrb = () => {
   const [isVibeAlert, setIsVibeAlert] = useState(false);
 
-  // Listen for the "VIBE_ALERT" from the Python Agent
+  // --- UPDATED DATA CHANNEL LISTENER ---
   useDataChannel((message) => {
-    const data = JSON.parse(new TextDecoder().decode(message.payload));
-    if (data.type === 'VIBE_ALERT') {
-      setIsVibeAlert(true);
-      // Reset back to normal after 5 seconds (matching the "breathe" pause)
-      setTimeout(() => setIsVibeAlert(false), 5000);
+    try {
+      // Decode the binary payload to a string
+      const decodedString = new TextDecoder().decode(message.payload);
+      const data = JSON.parse(decodedString);
+
+      // Check for our specific trigger from agent.py
+      if (data.type === 'VIBE_ALERT') {
+        console.log("🚀 VIBE ALERT RECEIVED: Switching UI to Critical Mode");
+        setIsVibeAlert(true);
+        
+        // Reset back to normal after 5 seconds
+        setTimeout(() => {
+          setIsVibeAlert(false);
+          console.log("✅ Vibe stabilized. Returning to normal.");
+        }, 5000);
+      }
+    } catch (error) {
+      // Ignore messages that aren't JSON (like chat or other system noise)
+      console.debug("Non-critical data received");
     }
   });
 
@@ -47,9 +61,8 @@ export const GeminiOrb = () => {
         
         {/* The Visualizer Bars */}
         <div className="relative z-0 w-full px-8 opacity-80 group-hover:opacity-100 transition-opacity">
-          {/* BarVisualizer color is usually inherited or set via CSS */}
           <div className={isVibeAlert ? 'text-red-500' : 'text-cyan-400'}>
-             <BarVisualizer options={{ barWidth: 6, gap: 4 }} />
+              <BarVisualizer options={{ barWidth: 6, gap: 4 }} />
           </div>
         </div>
 
